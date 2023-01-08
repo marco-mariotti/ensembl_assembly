@@ -5,8 +5,10 @@ This program will produce a tabular-like format with the metadata for the genome
 It may also download desired data to a local folder.
 
 ## Dependencies
--pandas
--easyterm
+
+- pandas
+- easyterm
+
 
 These can be installed through conda:
 

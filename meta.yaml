@@ -1,0 +1,43 @@
+package:
+  name:    {{ name }}
+  version: {{ version }}
+
+source:
+  url: "https://pypi.io/packages/source/{{ name[0] }}/{{ name }}/{{ name }}-{{ version }}.tar.gz"
+
+
+build:
+  number: 0
+  noarch: python
+  entry_points:
+    - ensembl_assembly = ensembl_assembly.ensembl_assembly:main
+  script: "{{ PYTHON }} -m pip install . -vv"
+
+requirements:
+  host:
+    - pip
+    - python >=3.8,<3.10
+  run:
+    - python >=3.8,<3.10
+    - easyterm >=0.7.0
+    - pandas >=1.2
+
+test:
+  imports:
+    - {{ name }}
+
+  commands:
+    - ensembl_assembly -h
+
+about:
+  home: "https://github.com/marco-mariotti/{{name}}"
+  license: MIT
+  license_family: MIT
+  license_file: 
+  summary: "Utility to search and download Ensembl data such as genome assemblies and gene annotations"
+  doc_url: "https://github.com/marco-mariotti/{{name}}"
+  dev_url: 
+
+extra:
+  recipe-maintainers:
+    - marco-mariotti
