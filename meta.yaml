@@ -21,6 +21,7 @@ requirements:
     - python >=3.8,<3.10
     - easyterm >=0.7.0
     - pandas >=1.2
+    - requests >=2.27
 
 test:
   imports:

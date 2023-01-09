@@ -3,7 +3,7 @@
 import requests, sys, ftplib, os, subprocess, gzip, shutil
 import pandas as pd
 from easyterm import *
-from _version import __version__
+from ._version import __version__
 
 def_opt={'i':'',
          'n':'',
