@@ -181,7 +181,8 @@ def main(args={}):
     if opt['otab']:
         write(f"Printing table with all available fields to -> {opt['otab']}")
         ensembl_assembly_data.to_csv(opt['otab'], sep='\t', index=False)
-
+    
+    error_save=None
     if opt['d']:
         types_to_download=opt['d'].split(',')  if opt['d']!='any' else  ensembl_file_codes
         
@@ -200,7 +201,7 @@ def main(args={}):
             
             ftp_handler=get_ftp_handler() # lazy connection            
             for k in types_to_download:
-                
+                missing_data=False            
                 ftp_path=strip_ftp_root(r['f:'+k])
                 basename_ftp_path=os.path.basename(ftp_path)
                 file_destination= assembly_folder + basename_ftp_path
@@ -235,12 +236,45 @@ def main(args={}):
 
                 if lets_download:
                     ## downloading checksum file
+                    the_error=None
+                    down_ok=False
                     ftp_checksum_file=os.path.dirname(ftp_path) + '/CHECKSUMS'
-                    checksum_file_content=''
-                    def store_checksum_file_content(line):
-                        nonlocal checksum_file_content
-                        checksum_file_content+=str(line, 'utf-8')
-                    ftp_handler.retrbinary("RETR " + ftp_checksum_file, store_checksum_file_content)
+                    for download_attempt in range(opt['max_down']): 	                       
+                        checksum_file_content=''
+                        def store_checksum_file_content(line):
+                          nonlocal checksum_file_content
+                          checksum_file_content+=str(line, 'utf-8')
+                    
+                        try:
+                          ftp_handler.retrbinary("RETR " + ftp_checksum_file, store_checksum_file_content)
+                          down_ok= True
+                        except ftplib.error_perm:
+                          printerr(f'ERROR no files have been found') #
+                          missing_data=True
+                          break                           
+                        except Exception as e:
+                          printerr(f'WARNING connection error in attempt {download_attempt}')
+                          the_error=e
+                          continue
+
+                        if down_ok:
+                          break
+                          
+                        continue
+                        
+                    if missing_data:
+                      # no file
+                      #### add print err, ...
+                      printerr(f'ERROR there is no file to download') 
+                      
+                      break
+                      
+                    if not down_ok:
+                      # prinerr max attempts reach, this was the error:
+                      printerr(f'ERROR maximum number of attempts reached, the error was:')
+                      raise the_error 
+                      error_save=the_error
+                      
 
                     ## getting checksum of file we want
                     website_checksum=None                
@@ -252,19 +286,54 @@ def main(args={}):
                     if website_checksum is None: raise(Exception(f"ERROR I did not find the checksum for {basename_ftp_path}"))
 
                     #### downloading actual target file
+                    the_error=None
+                    down_ok=False
                     for download_attempt in range(opt['max_down']):
                         service(message+  f" downloading (attempt n.{download_attempt+1})")
-                        fh = open( '{}'.format(file_destination_tmp), "wb")            #fh = open( '{}'.format(file_destination_tmp), "w")
-                        ftp_handler.retrbinary("RETR " + ftp_path, fh.write)       #ftp_handler.retrlines("RETR " + ftp_path_cut, fh.write) #, 8*1024)
-                        fh.close()
-
+                        try:  
+                          fh = open( '{}'.format(file_destination_tmp), "wb")            #fh = open( '{}'.format(file_destination_tmp), "w")
+                          ftp_handler.retrbinary("RETR " + ftp_path, fh.write)       #ftp_handler.retrlines("RETR " + ftp_path_cut, fh.write) #, 8*1024)
+                          down_ok=True
+                          fh.close()
+                          
+                        except ftplib.error_perm:
+                          printerr(f'ERROR no files have been found')
+                          missing_data=True
+                          break
+                        except Exception as e:
+                          printerr(f'WARNING connection error in attempt {download_attempt}')
+                          the_error=e
+                          continue
+                         
+                        if down_ok:
+                          break
+                       
+                        continue
+                       
                         downloaded_checksum=checksum_of_file(file_destination_tmp)
 
                         if downloaded_checksum!=website_checksum:
-                            printerr('checksum did not match for {} at download attempt {}'.format(basename_ftp_path, download_attempt+1) )
+                         printerr('checksum did not match for {} at download attempt {}'.format(basename_ftp_path, download_attempt+1) )
                         else:
-                            break  #ok, no more download attempts
-
+                         break  #ok, no more download attempts
+                        
+                        if downloaded_checksum!=website_checksum:
+                         raise(Exception(f"ERROR I did not find the target file for {basename_ftp_path}"))
+                    if missing_data:
+                      # no file
+                      #### add print err, ...
+                      printerr(f'ERROR there is no file to download') 
+                      
+                      break
+                      
+                    if not down_ok:
+                      # prinerr max attempts reach, this was the error:
+                      printerr(f'ERROR maximum number of attempts reached, the error was:')
+                      raise the_error 
+                      
+                    #add if downloaded_checksum!=website_checksum  --> raise error checksum don't match after X attempts
+                      
+                    
                     os.rename(file_destination_tmp,  file_destination)
 
                 if lets_unzip:
@@ -288,6 +357,8 @@ def main(args={}):
             write(message)
         write('='*table2_width)
         
+        if error_save!=None:
+         print(error_save)
 
 
 
